@@ -1,0 +1,36 @@
+{% extends "theme.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row align-items-center">
+        <div class="col-md-6 mb-4">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-4" style="height: 450px;">
+                <img src="{{ product.image.url }}" class="w-100 h-100" style="object-fit: contain;">
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <h1 class="display-5 fw-bold">{{ product.name }}</h1>
+            <h3 class="text-primary fw-bold">Rs: {{ product.price }}/-</h3>
+            <hr>
+
+            <div class="mt-4">
+                <h5 class="fw-bold">Product Details</h5>
+                <div class="text-muted" style="font-size: 1.1rem; line-height: 1.8;">
+                    {% if product.desc %}
+                        {{ product.desc|linebreaks }}
+                    {% else %}
+                        <p>No description available for this item.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+           <div class="d-grid gap-2 d-md-flex mt-5">
+    <button type="button"  value="{{ product.id }}" class="btn btn-primary rounded-pill px-4 fw-bold add-cart-btn">
+        <i class="bi bi-cart-plus me-2" href="{% url 'cart_summary' %}"></i>Book Now
+    </button>
+</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

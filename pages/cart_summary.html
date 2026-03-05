@@ -1,0 +1,207 @@
+{% extends "theme.html" %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<div class="container py-5">
+    <div class="row g-5">
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold mb-0">Shopping Cart</h2>
+                <span class="text-muted"><span id="cart-count">{{ cart_items|length }}</span> Items</span>
+            </div>
+
+            {% if cart_items %}
+                {% for item in cart_items %}
+                <div class="card mb-3 shadow-sm border-0 rounded-4 overflow-hidden item-row" data-index="{{ item.product.id }}">
+                    <div class="row g-0 align-items-center p-3">
+                        <div class="col-3 col-md-2">
+                            <div class="bg-light rounded-3 p-2">
+                                <img src="{{ item.product.image.url }}" class="img-fluid" alt="{{ item.product.name }}">
+                            </div>
+                        </div>
+                        
+                        <div class="col-9 col-md-10">
+                            <div class="card-body py-0 px-3 px-md-4">
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="fw-bold mb-1">{{ item.product.name }}</h5>
+                                    <button type="button" 
+                                            class="btn-close small remove-item" 
+                                            data-index="{{ item.product.id }}" 
+                                            aria-label="Close">
+                                    </button>
+                                </div>
+                                <p class="text-muted small mb-2">Product ID: #00{{ item.product.id }}</p>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <select class="form-select form-select-sm rounded-pill qty-input" data-product="{{ item.product.id }}" style="width: 80px;">
+                                            {% for i in "123456789" %}
+                                                <option value="{{ i }}" {% if item.quantity|slugify == i %}selected{% endif %}>
+                                                    {{ i }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <span class="fw-bold text-primary">Rs. {{ item.product.price }}/-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5 bg-white rounded-4 shadow-sm">
+                    <i class="bi bi-cart-x display-1 text-muted"></i>
+                    <p class="lead mt-3 text-muted">Your cart feels lonely.</p>
+                    <a href="{% url 'home' %}" class="btn btn-primary rounded-pill px-4">Continue Shopping</a>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+           <div class="card border-0 shadow-sm rounded-4 p-4 sticky-top" style="top: 100px; z-index: 1000;">
+                <h4 class="fw-bold mb-4">Price Details</h4>
+                
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Items Total</span>
+                    <span>Rs. <span id="summary-subtotal">{{ grand_total }}</span></span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Delivery Charges</span>
+                    <span class="text-success">FREE</span>
+                </div>
+                <hr class="my-4">
+                <div class="d-flex justify-content-between mb-4">
+                    <h5 class="fw-bold">Total Amount</h5>
+                    <h5 class="fw-bold text-primary">Rs. <span id="summary-total">{{ grand_total }}</span>/-</h5>
+                </div>
+
+                <form id="order-form" action="{% url 'checkout' %}" method="POST">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-lg w-100 rounded-pill fw-bold shadow-sm mb-3" {% if not cart_items %}disabled{% endif %}>
+                        Place Order
+                    </button>
+                </form>
+
+                {% if cart_items %}
+                <a href="{% url 'cart_clear' %}" onclick="return confirm('Clear all items?')" class="btn btn-outline-danger btn-sm w-100 rounded-pill fw-bold">
+                    <i class="bi bi-trash3-fill me-1"></i> Clear Cart
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script>
+// 1. Helper Function to update all UI elements
+function updateUINumbers(json) {
+    localStorage.setItem('cart_count', json.qty);
+    
+    // Update labels in summary sidebar (if they exist on this page)
+    $('#cart-count').text(json.qty);
+    $('#summary-subtotal').text(json.total);
+    $('#summary-total').text(json.total);
+    
+    // Update the Navbar Badge
+    const cartBadge = document.getElementById('cart-qty');
+    if (cartBadge) {
+        cartBadge.textContent = json.qty;
+        if (parseInt(json.qty) > 0) {
+            cartBadge.classList.remove('d-none');
+        } else {
+            cartBadge.classList.add('d-none');
+        }
+    }
+}
+
+// 2. Book Now / Add to Cart
+$(document).on('click', '.add-cart-btn', function(e) {
+    e.preventDefault();
+    const product_id = $(this).val(); // Make sure button has value="{{ product.id }}"
+    
+    $.ajax({
+        type: 'POST',
+        url: '{% url "cart_add" %}',
+        data: {
+            product_id: product_id,
+            csrfmiddlewaretoken: '{{ csrf_token }}',
+            action: 'post'
+        },
+        success: function(json) {
+            localStorage.setItem('cart_count', json.qty);
+            window.location.href = "{% url 'cart_summary' %}";
+        }
+    });
+});
+
+// 3. Remove Item
+$(document).on('click', '.remove-item', function (e) {
+    e.preventDefault();
+    var p_id = $(this).data('index'); 
+    var itemRow = $(this).closest('.item-row'); 
+
+    $.ajax({
+        type: 'POST',
+        url: '{% url "cart_delete" %}', 
+        data: {
+            product_id: p_id,
+            csrfmiddlewaretoken: '{{ csrf_token }}',
+            action: 'post'
+        },
+        success: function (json) {
+            updateUINumbers(json);
+            itemRow.fadeOut(300, function() { 
+                $(this).remove(); 
+                if (json.qty === 0 || $('.item-row').length === 0) { 
+                    location.href = '{% url "cart_summary" %}'; 
+                }
+            });
+        }
+    });
+});
+
+// 4. Update Quantity
+$(document).on('change', '.qty-input', function (e) {
+    e.preventDefault();
+    var p_id = $(this).data('product');
+    var p_qty = $(this).val();
+    $.ajax({
+        type: 'POST',
+        url: '{% url "cart_update" %}', 
+        data: {
+            product_id: p_id,
+            product_qty: p_qty,
+            csrfmiddlewaretoken: '{{ csrf_token }}',
+            action: 'post'
+        },
+        success: function (json) {
+            updateUINumbers(json);
+            location.reload(); 
+        }
+    });
+});
+
+// 5. Place Order
+const orderForm = document.getElementById('order-form');
+if (orderForm) {
+    orderForm.addEventListener('submit', function(e) {
+        e.preventDefault(); 
+        Swal.fire({
+            title: 'Order Placed!',
+            text: 'Your gadgets are on the way.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false,
+            willClose: () => {
+                localStorage.setItem('cart_count', 0);
+                orderForm.submit();
+            }
+        });
+    });
+}
+</script>
+
+{% endblock %} 
